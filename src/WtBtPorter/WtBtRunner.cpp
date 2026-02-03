@@ -465,7 +465,17 @@ void WtBtRunner::config(const char* cfgFile, bool isFile /* = true */)
 
 	//初始化事件推送器
 	initEvtNotifier(_cfg->get("notifier"));
-
+	
+	// Check if replayer config exists
+	WTSVariant* cfgReplayer = _cfg->get("replayer");
+	if(cfgReplayer == NULL)
+	{
+		WTSLogger::error("Replayer config not found in backtest config");
+		WTSLogger::error("Please check your config file has 'replayer' section");
+		return;
+	}
+	
+	// Initialize replayer with null check
 	_replayer.init(_cfg->get("replayer"), &_notifier, _ext_fnl_bar_loader != NULL ? this : NULL);
 
 	WTSVariant* cfgEnv = _cfg->get("env");
