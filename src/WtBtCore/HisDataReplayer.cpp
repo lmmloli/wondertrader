@@ -787,6 +787,22 @@ void HisDataReplayer::run_by_bars(bool bNeedDump /* = false */)
 	TimeUtils::Ticker ticker;
 
 	BarsListPtr barsList = _bars_cache[_main_key];
+
+// 检查barsList是否为空，防止访问违例
+if (!barsList || barsList == nullptr)
+{
+WTSLogger::error("Failed to get bars list for main key: {}", _main_key);
+WTSLogger::error("Please check if the main contract is properly configured");
+WTSLogger::error("Verify that data files exist for the specified contract");
+
+// 通知回测结束
+_listener->handle_replay_done();
+if (_notifier)
+_notifier->notifyEvent("BT_END");
+
+_running = false;
+return;
+}
 	WTSSessionInfo* sInfo = get_session_info(barsList->_code.c_str(), true);
 
 	// 添加NULL检查，防止访问违例
