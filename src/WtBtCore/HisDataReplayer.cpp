@@ -235,7 +235,15 @@ bool HisDataReplayer::init(WTSVariant* cfg, EventNotifier* notifier /* = NULL */
 	{
 		if (cfgItem->type() == WTSVariant::VT_String)
 		{
-			_bd_mgr.loadCommodities(cfgItem->asCString());
+			if (!_bd_mgr.loadCommodities(cfgItem->asCString()))
+			{
+				WTSLogger::error("Failed to load commodities from: {}", cfgItem->asCString());
+				WTSLogger::error("This may cause session info lookup failures during backtest");
+			}
+			else
+			{
+				WTSLogger::info("Commodities loaded successfully from: {}", cfgItem->asCString());
+			}
 		}
 		else if (cfgItem->type() == WTSVariant::VT_Array)
 		{
@@ -251,7 +259,15 @@ bool HisDataReplayer::init(WTSVariant* cfg, EventNotifier* notifier /* = NULL */
 	{
 		if (cfgItem->type() == WTSVariant::VT_String)
 		{
-			_bd_mgr.loadContracts(cfgItem->asCString());
+			if (!_bd_mgr.loadContracts(cfgItem->asCString()))
+			{
+				WTSLogger::error("Failed to load contracts from: {}", cfgItem->asCString());
+				WTSLogger::error("This may cause session info lookup failures during backtest");
+			}
+			else
+			{
+				WTSLogger::info("Contracts loaded successfully from: {}", cfgItem->asCString());
+			}
 		}
 		else if (cfgItem->type() == WTSVariant::VT_Array)
 		{
@@ -772,6 +788,23 @@ void HisDataReplayer::run_by_bars(bool bNeedDump /* = false */)
 
 	BarsListPtr barsList = _bars_cache[_main_key];
 	WTSSessionInfo* sInfo = get_session_info(barsList->_code.c_str(), true);
+
+	// 添加NULL检查，防止访问违例
+	if (sInfo == NULL)
+	{
+		WTSLogger::error("Failed to get session info for code: {}", barsList->_code.c_str());
+		WTSLogger::error("Please check if commodities.json and contracts.json are loaded correctly");
+		WTSLogger::error("Verify that the contract code exists in your configuration files");
+		WTSLogger::error("Backtest cannot continue without valid session information");
+		
+		// 通知回测结束
+		_listener->handle_replay_done();
+		if (_notifier)
+			_notifier->notifyEvent("BT_END");
+		
+		_running = false;
+		return;
+	}
 	CodeHelper::CodeInfo codeInfo = CodeHelper::extractStdCode(barsList->_code.c_str(), NULL);
 	std::string commId = codeInfo.stdCommID();
 
