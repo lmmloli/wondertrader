@@ -1123,6 +1123,14 @@ bool CtaMocker::on_schedule(uint32_t curDate, uint32_t curTime)
 		}
 
 		WTSSessionInfo* sInfo = _replayer->get_session_info(stdCode, true);
+		
+		// 添加NULL检查，防止访问违例
+		if (sInfo == NULL)
+		{
+			WTSLogger::error("Failed to get session info for code: {} in on_schedule", stdCode);
+			WTSLogger::error("Please check if commodities.json and contracts.json are loaded correctly");
+			continue;
+		}
 
 		if (isMainUdt || _kline_tags.empty())
 		{
