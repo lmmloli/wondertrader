@@ -1354,6 +1354,14 @@ void HisDataReplayer::simTicks(uint32_t uDate, uint32_t uTime, uint32_t endTDate
 								realCode = realCode.substr(0, realCode.size() - 1);
 
 							WTSSessionInfo* sInfo = get_session_info(realCode.c_str(), true);
+
+							if (sInfo == NULL)
+							{
+								WTSLogger::error("Failed to get session info for bar close price");
+								WTSLogger::error("Please check if commodities.json and contracts.json are loaded correctly");
+								continue;
+							}
+
 							uint32_t curTime = sInfo->getCloseTime();
 							//开高低收
 							WTSTickStruct curTS;
@@ -1491,6 +1499,14 @@ void HisDataReplayer::simTickWithUnsubBars(uint64_t stime, uint64_t nowTime, uin
 							realCode = realCode.substr(0, realCode.size() - 1);
 
 						WTSSessionInfo* sInfo = get_session_info(realCode.c_str(), true);
+
+						if (sInfo == NULL)
+						{
+							WTSLogger::error("Failed to get session info for bar open price");
+							WTSLogger::error("Please check if commodities.json and contracts.json are loaded correctly");
+							continue;
+						}
+
 						uint32_t curTime = sInfo->getOpenTime();
 						//开高低收
 						WTSTickStruct curTS;
@@ -1555,6 +1571,14 @@ uint64_t HisDataReplayer::getNextTickTime(uint32_t curTDate, uint64_t stime /* =
 			continue;
 
 		WTSSessionInfo* sInfo = get_session_info(stdCode, true);
+
+		if (sInfo == NULL)
+		{
+			WTSLogger::error("Failed to get session info for tick subscription");
+			WTSLogger::error("Please check if commodities.json and contracts.json are loaded correctly");
+			continue;
+		}
+
 
 		auto& tickList = _ticks_cache[stdCode];
 		if (tickList._cursor == UINT_MAX)
@@ -3194,6 +3218,14 @@ void HisDataReplayer::checkUnbars()
 			continue;
 
 		WTSSessionInfo* sInfo = get_session_info(stdCode.c_str(), true);
+
+		if (sInfo == NULL)
+		{
+			WTSLogger::error("Failed to get session info for code in replay_ticks");
+			WTSLogger::error("Please check if commodities.json and contracts.json are loaded correctly");
+			continue;
+		}
+
 
 		BarsListPtr& kBlkPair = _unbars_cache[key];
 
