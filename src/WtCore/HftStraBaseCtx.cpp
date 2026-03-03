@@ -36,6 +36,7 @@ inline uint32_t makeHftCtxId()
 HftStraBaseCtx::HftStraBaseCtx(WtHftEngine* engine, const char* name, bool bAgent, int32_t slippage)
 	: IHftStraCtx(name)
 	, _engine(engine)
+	, _trader(nullptr)
 	, _data_agent(bAgent)
 	, _slippage(slippage)
 {
@@ -182,11 +183,21 @@ void HftStraBaseCtx::on_bar(const char* stdCode, const char* period, uint32_t ti
 
 bool HftStraBaseCtx::stra_cancel(uint32_t localid)
 {
+	if (_trader == nullptr)
+	{
+		WTSLogger::error("[{}] stra_cancel({}): trader is NULL", _name, localid);
+		return false;
+	}
 	return _trader->cancel(localid);
 }
 
 OrderIDs HftStraBaseCtx::stra_cancel(const char* stdCode, bool isBuy, double qty)
 {
+	if (_trader == nullptr)
+	{
+		WTSLogger::error("[{}] stra_cancel({}): trader is NULL", _name, stdCode);
+		return OrderIDs();
+	}
 	//撤单频率检查
 	if (!_trader->checkCancelLimits(stdCode))
 		return OrderIDs();
@@ -241,6 +252,12 @@ OrderIDs HftStraBaseCtx::stra_buy(const char* stdCode, double price, double qty,
 			return OrderIDs();
 		}
 
+		if (_trader == nullptr)
+		{
+			WTSLogger::error("[{}] stra_buy({}): trader is NULL, binding may have failed", _name, stdCode);
+			return OrderIDs();
+		}
+
 		if (!_trader->checkOrderLimits(stdCode))
 		{
 			log_info("{} is forbidden to trade", stdCode);
@@ -290,6 +307,12 @@ OrderIDs HftStraBaseCtx::stra_sell(const char* stdCode, double price, double qty
 			return OrderIDs();
 		}
 
+		if (_trader == nullptr)
+		{
+			WTSLogger::error("[{}] stra_sell(ruletag={}): trader is NULL", _name, realCode.c_str());
+			return OrderIDs();
+		}
+
 		auto ids = _trader->sell(realCode.c_str(), price, qty, flag, bForceClose, ct);
 		for (auto localid : ids)
 			setUserTag(localid, userTag);
@@ -301,6 +324,12 @@ OrderIDs HftStraBaseCtx::stra_sell(const char* stdCode, double price, double qty
 		if (ct == NULL)
 		{
 			log_error("Cannot find corresponding contract info of {}", stdCode);
+			return OrderIDs();
+		}
+
+		if (_trader == nullptr)
+		{
+			WTSLogger::error("[{}] stra_sell({}): trader is NULL, binding may have failed", _name, stdCode);
 			return OrderIDs();
 		}
 
