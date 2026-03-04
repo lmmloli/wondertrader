@@ -650,8 +650,11 @@ void TraderCTP::OnRspUserLogin(CThostFtdcRspUserLoginField *pRspUserLogin, CThos
 
 		write_log(m_sink, LL_INFO, "[TraderCTP][{}-{}] Login succeed, trading date: {}...", m_strBroker.c_str(), m_strUser.c_str(), m_lDate);
 
-		write_log(m_sink, LL_INFO, "[TraderCTP][{}-{}] Querying confirming state of settlement data...", m_strBroker.c_str(), m_strUser.c_str());
-		queryConfirm();
+		// triggerQuery() 已被注释，结算确认查询无法完成，直接跳过设为 WS_ALLREADY
+		write_log(m_sink, LL_WARN, "[TraderCTP][{}-{}] Skipping settlement confirm query, set ALLREADY directly after login", m_strBroker.c_str(), m_strUser.c_str());
+		m_wrapperState = WS_ALLREADY;
+		if (m_sink)
+			m_sink->onLoginResult(true, "", m_lDate);
 	}
 	else
 	{
