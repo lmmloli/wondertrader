@@ -694,16 +694,22 @@ void TraderCTP::OnRspQrySettlementInfoConfirm(CThostFtdcSettlementInfoConfirmFie
 			}
 			else
 			{
-				m_wrapperState = WS_CONFIRM_QRYED;
-
-				write_log(m_sink, LL_INFO, "[TraderCTP][{}-{}] Confirming settlement data...", m_strBroker.c_str(), m_strUser.c_str());
-				confirm();
+				// ConfirmDate < m_lDate（非交易时段仿真环境常见），跳过结算确认直接就绪
+				write_log(m_sink, LL_WARN, "[TraderCTP][{}-{}] ConfirmDate({}) < TradingDay({}), skipping settlement confirm, set ALLREADY directly",
+					m_strBroker.c_str(), m_strUser.c_str(), uConfirmDate, m_lDate);
+				m_wrapperState = WS_ALLREADY;
+				if (m_sink)
+					m_sink->onLoginResult(true, "", m_lDate);
 			}
 		}
 		else
 		{
-			m_wrapperState = WS_CONFIRM_QRYED;
-			confirm();
+			// pSettlementInfoConfirm 为 NULL，同样直接就绪
+			write_log(m_sink, LL_WARN, "[TraderCTP][{}-{}] Settlement confirm info is NULL, set ALLREADY directly",
+				m_strBroker.c_str(), m_strUser.c_str());
+			m_wrapperState = WS_ALLREADY;
+			if (m_sink)
+				m_sink->onLoginResult(true, "", m_lDate);
 		}
 	}
 
