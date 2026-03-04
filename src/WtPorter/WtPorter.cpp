@@ -1166,6 +1166,26 @@ WtString hft_sell(CtxHandler cHandle, const char* stdCode, double price, double 
 	return ret.c_str();
 }
 
+// 平多仓专用：绕过 actpolicy target 模型，直接发平多指令
+// isToday=false → WOT_CLOSE（平昨），isToday=true → WOT_CLOSETODAY（平今）
+// 账户无对应持仓时 CTP 返回「平昨持仓不足」或「平今持仓不足」
+WtString hft_exit_long(CtxHandler cHandle, const char* stdCode, double price, double qty, const char* userTag, bool isToday, int flag)
+{
+	HftContextPtr ctx = getRunner().getHftContext(cHandle);
+	if (ctx == NULL)
+		return "";
+
+	static std::string ret;
+
+	std::stringstream ss;
+	uint32_t localid = ctx->stra_exit_long(stdCode, price, qty, userTag, isToday, flag);
+	if (localid != 0)
+		ss << localid;
+
+	ret = ss.str();
+	return ret.c_str();
+}
+
 void hft_save_userdata(CtxHandler cHandle, const char* key, const char* val)
 {
 	HftContextPtr ctx = getRunner().getHftContext(cHandle);

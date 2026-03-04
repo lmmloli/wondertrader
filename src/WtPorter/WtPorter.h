@@ -277,6 +277,10 @@ extern "C"
 
 	EXPORT_FLAG	WtString	hft_sell(CtxHandler cHandle, const char* stdCode, double price, double qty, const char* userTag, int flag);
 
+	// 平多仓专用接口：直接调用 stra_exit_long，绕过 actpolicy target 模型
+	// isToday: false=平昨(WOT_CLOSE), true=平今(WOT_CLOSETODAY)
+	EXPORT_FLAG	WtString	hft_exit_long(CtxHandler cHandle, const char* stdCode, double price, double qty, const char* userTag, bool isToday, int flag);
+
 	EXPORT_FLAG	void		hft_save_userdata(CtxHandler cHandle, const char* key, const char* val);
 
 	EXPORT_FLAG	WtString	hft_load_userdata(CtxHandler cHandle, const char* key, const char* defVal);
