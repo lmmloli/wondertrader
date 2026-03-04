@@ -21,6 +21,8 @@
 #include "../Share/ModuleHelper.hpp"
 
 #include <boost/filesystem.hpp>
+#include <thread>
+#include <chrono>
 
 //By Wesley @ 2022.01.05
 #include "../Share/fmtlib.h"
@@ -307,6 +309,20 @@ int TraderCTP::doLogin()
 	{
 		write_log(m_sink, LL_ERROR, "[TraderCTP] Sending login request failed: {}", iResult);
 	}
+
+	// 超时保护：非交易时段 CTP 可能不回 OnRspUserLogin，10 秒后若仍未就绪则直接设 WS_ALLREADY
+	std::thread([this](){
+		std::this_thread::sleep_for(std::chrono::seconds(10));
+		if (m_wrapperState != WS_ALLREADY)
+		{
+			write_log(m_sink, LL_WARN, "[TraderCTP][{}-{}] Login timeout, no OnRspUserLogin received, set ALLREADY directly",
+				m_strBroker.c_str(), m_strUser.c_str());
+			m_lDate = atoi(m_pUserAPI->GetTradingDay());
+			m_wrapperState = WS_ALLREADY;
+			if (m_sink)
+				m_sink->onLoginResult(true, "", m_lDate);
+		}
+	}).detach();
 
 	return 0;
 }
