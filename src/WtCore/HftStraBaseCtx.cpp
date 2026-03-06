@@ -228,10 +228,21 @@ OrderIDs HftStraBaseCtx::stra_buy(const char* stdCode, double price, double qty,
 		std::string realCode = CodeHelper::rawMonthCodeToStdCode(code.c_str(), cInfo._exchg);
 
 		WTSContractInfo* ct = _engine->get_basedata_mgr()->getContract(code.c_str(), cInfo._exchg);
+		if (ct == NULL)
+		{
+			WTSLogger::error("[{}] stra_buy(ruletag): cannot find contract info for code={} exchg={}", _name, code.c_str(), cInfo._exchg);
+			return OrderIDs();
+		}
 
 		_code_map[realCode] = stdCode;
 
-		if (_trader && !_trader->checkOrderLimits(realCode.c_str()))
+		if (_trader == nullptr)
+		{
+			WTSLogger::error("[{}] stra_buy(ruletag={}): trader is NULL", _name, realCode.c_str());
+			return OrderIDs();
+		}
+
+		if (!_trader->checkOrderLimits(realCode.c_str()))
 		{
 			log_info("{} is forbidden to trade", realCode.c_str());
 			return OrderIDs();
@@ -298,18 +309,23 @@ OrderIDs HftStraBaseCtx::stra_sell(const char* stdCode, double price, double qty
 		std::string realCode = CodeHelper::rawMonthCodeToStdCode(code.c_str(), cInfo._exchg);
 
 		WTSContractInfo* ct = _engine->get_basedata_mgr()->getContract(code.c_str(), cInfo._exchg);
-
-		_code_map[realCode] = stdCode;
-
-		if (_trader && !_trader->checkOrderLimits(realCode.c_str()))
+		if (ct == NULL)
 		{
-			log_info("{} is forbidden to trade", realCode.c_str());
+			WTSLogger::error("[{}] stra_sell(ruletag): cannot find contract info for code={} exchg={}", _name, code.c_str(), cInfo._exchg);
 			return OrderIDs();
 		}
+
+		_code_map[realCode] = stdCode;
 
 		if (_trader == nullptr)
 		{
 			WTSLogger::error("[{}] stra_sell(ruletag={}): trader is NULL", _name, realCode.c_str());
+			return OrderIDs();
+		}
+
+		if (!_trader->checkOrderLimits(realCode.c_str()))
+		{
+			log_info("{} is forbidden to trade", realCode.c_str());
 			return OrderIDs();
 		}
 
