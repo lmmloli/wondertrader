@@ -349,9 +349,6 @@ void HftMocker::on_tick(const char* stdCode, WTSTickData* newTick)
 
 	update_dyn_profit(stdCode, newTick);
 
-	OrderIDs all_ids;
-	for (auto it = _orders.begin(); it != _orders.end(); it++)
-		all_ids.push_back(it->first);
 	//如果开启了同tick撮合，则先触发策略的ontick，再处理订单
 	//如果没开启同tick撮合，则先处理订单，再触发策略的ontick
 	if (_match_this_tick)
@@ -372,28 +369,19 @@ void HftMocker::on_tick(const char* stdCode, WTSTickData* newTick)
 		if (!_orders.empty())
 		{
 			StdLocker<StdRecurMutex> lock(_mtx_ords);
-			OrderIDs ids;
-			for (uint32_t localid : all_ids)
-			{
-				bool bNeedErase = procOrder(localid);
-				if (bNeedErase)
-					ids.emplace_back(localid);
-			}
+			//在锁内创建快照，确保与 _orders 状态一致
+			OrderIDs all_ids;
+			for (auto it = _orders.begin(); it != _orders.end(); it++)
+				all_ids.push_back(it->first);
 
-			for (uint32_t localid : ids)
-			{
-				_orders.erase(localid);
-			}
-		}
-	}
-	else
-	{
-		if (!_orders.empty())
-		{
-			StdLocker<StdRecurMutex> lock(_mtx_ords);
 			OrderIDs ids;
 			for (uint32_t localid : all_ids)
 			{
+				//on_bar 回调中的 stra_buy/stra_cancel 可能修改 _orders，
+				//因此每次迭代前检查 localid 是否仍然存在
+				if (_orders.find(localid) == _orders.end())
+					continue;
+
 				bool bNeedErase = procOrder(localid);
 				if (bNeedErase)
 					ids.emplace_back(localid);
@@ -402,7 +390,37 @@ void HftMocker::on_tick(const char* stdCode, WTSTickData* newTick)
 			for (uint32_t localid : ids)
 			{
 				auto it = _orders.find(localid);
-				_orders.erase(it);
+				if (it != _orders.end())
+					_orders.erase(it);
+			}
+		}
+	}
+	else
+	{
+		if (!_orders.empty())
+		{
+			StdLocker<StdRecurMutex> lock(_mtx_ords);
+			//在锁内创建快照，确保与 _orders 状态一致
+			OrderIDs all_ids;
+			for (auto it = _orders.begin(); it != _orders.end(); it++)
+				all_ids.push_back(it->first);
+
+			OrderIDs ids;
+			for (uint32_t localid : all_ids)
+			{
+				if (_orders.find(localid) == _orders.end())
+					continue;
+
+				bool bNeedErase = procOrder(localid);
+				if (bNeedErase)
+					ids.emplace_back(localid);
+			}
+
+			for (uint32_t localid : ids)
+			{
+				auto it = _orders.find(localid);
+				if (it != _orders.end())
+					_orders.erase(it);
 			}
 		}
 
