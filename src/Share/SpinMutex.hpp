@@ -22,6 +22,8 @@ public:
 			{
 #ifdef _MSC_VER
 				_mm_pause();
+#elif defined(__aarch64__)
+				asm volatile("yield");
 #else
 				__builtin_ia32_pause();
 #endif
