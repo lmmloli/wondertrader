@@ -12,7 +12,7 @@
 * CTPLoader增加了加载历史合约列表的机制，每次只更新新增的合约
 * 一些可执行工程，增加命令行参数
 * 其他细节完善、性能优化和bug修正
-
+* 增加MacOS 平台支持
 ### 0.9.8
 * （**重要**）hash容器升级，从以前的robin_map，升级为ankerl::unordered_dense，综合读写速度提升1/3
 * （**重要**）去掉以前的Longkey和ShortKey，改成std::string，并且将std::string对应的hash算法改成bkdrhash（还没做特别详细的性能对比，后面可能还会修改）

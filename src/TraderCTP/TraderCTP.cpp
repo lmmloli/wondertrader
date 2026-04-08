@@ -120,11 +120,15 @@ bool TraderCTP::init(WTSVariant* params)
 
 	m_strFlowDir = StrUtil::standardisePath(m_strFlowDir);
 
-	std::string module = params->getCString("ctpmodule");
-	if (module.empty())
-		module = "thosttraderapi_se";
+#ifdef __APPLE__
+    m_funcCreator = CThostFtdcTraderApi::CreateFtdcTraderApi;
+#else
+	WTSVariant* param = params->get("ctpmodule");
+	if (param != NULL)
+		m_strModule = getBinDir() + DLLHelper::wrap_module(param->asCString());
+	else
+		m_strModule = getBinDir() + DLLHelper::wrap_module("thosttraderapi_se", "");
 
-	m_strModule = getBinDir() + DLLHelper::wrap_module(module.c_str(), "");
 
 	m_hInstCTP = DLLHelper::load_library(m_strModule.c_str());
 #ifdef _WIN32
@@ -137,7 +141,7 @@ bool TraderCTP::init(WTSVariant* params)
 	const char* creatorName = "_ZN19CThostFtdcTraderApi19CreateFtdcTraderApiEPKc";
 #endif
 	m_funcCreator = (CTPCreator)DLLHelper::get_symbol(m_hInstCTP, creatorName);
-
+#endif
 	m_bQuickStart = params->getBoolean("quick");
 
 	return true;

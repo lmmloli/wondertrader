@@ -140,7 +140,11 @@ void CTraderSpi::ReqUserLogin()
 	strcpy(req.BrokerID, BROKER_ID.c_str());
 	strcpy(req.UserID, INVESTOR_ID.c_str());
 	strcpy(req.Password, PASSWORD.c_str());
+#ifdef __APPLE__
+    int iResult = pUserApi->ReqUserLogin(&req, ++iRequestID, strlen("WonderTrader"), "WonderTrader");
+#else
 	int iResult = pUserApi->ReqUserLogin(&req, ++iRequestID);
+#endif
 	std::cerr << "--->>> Requesting user login: " << ((iResult == 0) ? "succeed" : "failed") << std::endl;
 }
 

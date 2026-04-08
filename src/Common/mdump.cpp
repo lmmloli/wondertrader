@@ -33,26 +33,128 @@ typedef BOOL(WINAPI *MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFi
 	CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
 
 CMiniDumper theCrashDumper;
+
+#ifdef _MSC_VER
 TCHAR CMiniDumper::m_szAppName[MAX_PATH] = { 0 };
 TCHAR CMiniDumper::m_szDumpPath[MAX_PATH] = { 0 };
+#else
+std::string CMiniDumper::m_szAppName;
+std::string CMiniDumper::m_szDumpPath;
 
+// 信号处理函数，用于捕获程序崩溃时的各类信号
+// sig: 触发的信号类型
+// info: 信号的详细信息
+// context: 信号发生时的上下文信息
+void CMiniDumper::SignalHandler(int sig, siginfo_t* info, void* context) {
+    char szDumpPath[1024] = { 0 };
+    // 如果未指定dump路径，则使用可执行文件所在目录
+    if(m_szDumpPath.empty()) {
+        char exePath[1024] = { 0 };
+        Dl_info dlInfo;
+        dladdr((void*)SignalHandler, &dlInfo);
+        strncpy(exePath, dlInfo.dli_fname, sizeof(exePath)-1);
+        char* lastSlash = strrchr(exePath, '/');
+        if(lastSlash) {
+            *(lastSlash+1) = '\0';
+            strncpy(szDumpPath, exePath, sizeof(szDumpPath)-1);
+        }
+    } else {
+        strncpy(szDumpPath, m_szDumpPath.c_str(), sizeof(szDumpPath)-1);
+    }
+
+    // 生成包含时间戳的dump文件名
+    time_t now = time(NULL);
+    struct tm* timeinfo = localtime(&now);
+    char timeStr[64];
+    strftime(timeStr, sizeof(timeStr), "%Y%m%d%H%M%S", timeinfo);
+
+    std::string dumpFile = std::string(szDumpPath) + m_szAppName + "_" + timeStr + ".dump";
+    GenerateStackTrace(dumpFile.c_str());
+
+    // 生成完堆栈信息后退出程序
+    exit(1);
+}
+
+// 生成程序崩溃时的堆栈跟踪信息
+// dumpPath: dump文件的保存路径
+void CMiniDumper::GenerateStackTrace(const char* dumpPath) {
+    // 获取堆栈信息
+    void* array[50];
+    int size = backtrace(array, 50);
+    char** messages = backtrace_symbols(array, size);
+
+    FILE* fp = fopen(dumpPath, "w");
+    if(!fp) return;
+
+    // 写入基本信息
+    fprintf(fp, "Crash Report for %s\n", m_szAppName.c_str());
+    fprintf(fp, "Stack trace:\n");
+
+    // 遍历并写入每一层堆栈信息
+    for(int i = 0; i < size; i++) {
+        Dl_info info;
+        if(dladdr(array[i], &info)) {
+            int status;
+            // 尝试对符号名进行解析
+            char* demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+            if(status == 0) {
+                fprintf(fp, "#%d: %s\n", i, demangled);
+                free(demangled);
+            } else {
+                fprintf(fp, "#%d: %s\n", i, messages[i]);
+            }
+        } else {
+            fprintf(fp, "#%d: %s\n", i, messages[i]);
+        }
+    }
+
+    fclose(fp);
+    free(messages);
+}
+#endif
+
+#ifdef _MSC_VER
 void CMiniDumper::Enable(LPCTSTR pszAppName, bool bShowErrors, LPCTSTR pszDumpPath/* = ""*/)
 {
-	// if this assert fires then you have two instances of CMiniDumper which is not allowed
-	_tcsncpy(m_szAppName, pszAppName, ARRSIZE(m_szAppName));
-	_tcsncpy(m_szDumpPath, pszDumpPath, ARRSIZE(m_szDumpPath));
+    // 初始化应用名称和dump文件路径
+    _tcsncpy(m_szAppName, pszAppName, ARRSIZE(m_szAppName));
+    _tcsncpy(m_szDumpPath, pszDumpPath, ARRSIZE(m_szDumpPath));
 
-	MINIDUMPWRITEDUMP pfnMiniDumpWriteDump = NULL;
-	HMODULE hDbgHelpDll = GetDebugHelperDll((FARPROC*)&pfnMiniDumpWriteDump, bShowErrors);
-	if (hDbgHelpDll)
-	{
-		if (pfnMiniDumpWriteDump)
-			SetUnhandledExceptionFilter(TopLevelFilter);
-		FreeLibrary(hDbgHelpDll);
-		hDbgHelpDll = NULL;
-		pfnMiniDumpWriteDump = NULL;
-	}
+    MINIDUMPWRITEDUMP pfnMiniDumpWriteDump = NULL;
+    HMODULE hDbgHelpDll = GetDebugHelperDll((FARPROC*)&pfnMiniDumpWriteDump, bShowErrors);
+    if (hDbgHelpDll)
+    {
+        if (pfnMiniDumpWriteDump)
+            SetUnhandledExceptionFilter(TopLevelFilter);
+        FreeLibrary(hDbgHelpDll);
+        hDbgHelpDll = NULL;
+        pfnMiniDumpWriteDump = NULL;
+    }
 }
+#else
+// 启用崩溃转储功能
+// pszAppName: 应用程序名称
+// bShowErrors: 是否显示错误信息
+// pszDumpPath: dump文件保存路径
+void CMiniDumper::Enable(const char* pszAppName, bool bShowErrors, const char* pszDumpPath/* = ""*/)
+{
+    m_szAppName = pszAppName;
+    m_szDumpPath = pszDumpPath;
+
+    // 设置信号处理器
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_sigaction = SignalHandler;
+    sa.sa_flags = SA_SIGINFO;
+
+    // 注册需要捕获的信号
+    sigaction(SIGSEGV, &sa, NULL);  // 段错误
+    sigaction(SIGABRT, &sa, NULL);  // 异常终止
+    sigaction(SIGFPE, &sa, NULL);   // 浮点异常
+    sigaction(SIGILL, &sa, NULL);   // 非法指令
+    sigaction(SIGBUS, &sa, NULL);   // 总线错误
+}
+#endif
 
 HMODULE CMiniDumper::GetDebugHelperDll(FARPROC* ppfnMiniDumpWriteDump, bool bShowErrors)
 {
