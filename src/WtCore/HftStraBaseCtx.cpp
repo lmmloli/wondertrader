@@ -838,6 +838,11 @@ void HftStraBaseCtx::do_set_position(const char* stdCode, double qty, double pri
 	log_info("Target position updated: {} -> {}", pInfo._volume, qty);
 
 	WTSCommodityInfo* commInfo = _engine->get_commodity_info(stdCode);
+	if (commInfo == NULL)
+	{
+		log_error("Cannot find commodity info for {}, position update ignored", stdCode);
+		return;
+	}
 
 	//成交价
 	double trdPx = curPx;
